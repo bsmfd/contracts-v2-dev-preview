@@ -18,6 +18,10 @@ import {RAY} from "../../libraries/WadRayMath.sol";
 // EXCEPTIONS
 import {NotImplementedException} from "../../interfaces/IErrors.sol";
 
+interface UniFactory {
+  function getPair(address tokenA, address tokenB) external returns (address);
+}
+
 /// @title UniswapV2 Router adapter
 contract UniswapV2Adapter is
     AbstractAdapter,
@@ -34,6 +38,61 @@ contract UniswapV2Adapter is
         AbstractAdapter(_creditManager, _router)
     {}
 
+    struct AddLPParams {
+      uint256 amountIn;
+      uint256 amountAMin;
+      uint256 amountBMin;
+      address[] path;
+      uint256 deadline;
+    }
+
+    function addLPWithSingleToken(AddLPParams calldata params) external nonReentrant {
+
+      address creditAccount = creditManager.getCreditAccountOrRevert(msg.sender);
+
+      creditManager.approveCreditAccount(msg.sender,
+                                         targetContract,
+                                         params.path[0],
+                                         type(uint256).max
+                                         );
+
+      creditManager.approveCreditAccount(msg.sender,
+                                         targetContract,
+                                         params.path[params.path.length - 1],
+                                         type(uint256).max
+                                         );
+
+      uint256[] memory amounts =  abi.decode(creditManager.executeOrder(msg.sender,
+                                            targetContract,
+                                            abi.encodeWithSelector(IUniswapV2Router02.swapExactTokensForTokens.selector,
+                                                                   params.amountIn / 2, // yolo
+                                                                   0,
+                                                                   params.path,
+                                                                   creditAccount,
+                                                                   params.deadline)), (uint256[]));
+      uint256 amountOtherGot = amounts[amounts.length - 1];
+
+      creditManager.executeOrder(msg.sender,
+                                 targetContract,
+                                 abi.encodeWithSelector(
+                                                        IUniswapV2Router02.swapTokensForExactTokens.selector,
+                                                        params.path[0],
+                                                        params.path[params.path.length - 1],
+                                                        params.amountIn/2,
+                                                        amountOtherGot,
+                                                        params.amountAMin,
+                                                        params.amountBMin,
+                                                        creditAccount,
+                                                        params.deadline
+                                                        ));
+
+      address lpToken = UniFactory(IUniswapV2Router02(targetContract).factory()).getPair(params.path[0], params.path[params.path.length - 1]);
+      creditManager.checkAndEnableToken(creditAccount, params.path[params.path.length - 1]);
+      creditManager.checkAndEnableToken(creditAccount, lpToken);
+      
+      creditManager.fullCollateralCheck(creditAccount);
+    }
+    
     /**
      * @dev Swap tokens to exact tokens using Uniswap-compatible protocol
      * - checks that swap contract is allowed

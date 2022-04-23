@@ -47,6 +47,10 @@ const config: HardhatUserConfig = {
     localhost: {
       timeout: 0,
     },
+    my: {
+      chainId: LOCAL_NETWORK,
+      url: "http://127.0.0.1:8545/",
+    },
     mainnet: {
       url: process.env.ETH_MAINNET_PROVIDER || "",
       accounts: [BOXCODE_PRIVATE_KEY, BVI_PRIVATE_KEY],

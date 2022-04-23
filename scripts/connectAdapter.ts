@@ -11,13 +11,14 @@ import {
   PriceOracle__factory,
   UniswapV2Adapter,
   ZeroPriceFeed,
+  LpOracle
 } from "../types";
 import { deploy, waitForTransaction } from "../utils/transaction";
 import { UNISWAP_V2_ROUTER } from "@gearbox-protocol/sdk";
 
 const log = new Logger();
 const CONFIGURATOR = "0x19301B8e700925E850C945a28256b6A6FDe5904C";
-const CREDIT_MANAGER = "";
+const CREDIT_MANAGER = "0x90017BA0dBb94B73D0A31fEae03B5A82B812a395";
 const ORIGINAL_CONTRACT = UNISWAP_V2_ROUTER;
 
 interface LPToken {
@@ -25,7 +26,10 @@ interface LPToken {
   liquidationThreshold: number;
 }
 
-const LP_TOKENS: Array<LPToken> = [];
+const LP_TOKENS: Array<LPToken> = [{
+  address: "0xe7282e08d2E7e56aA0e075b47a75C1f058428aEC",
+  liquidationThreshold: 1,
+}];
 
 /// This script deploys and connects new adapter to desired CreditManager
 async function deployAdapter() {
@@ -55,11 +59,14 @@ async function deployAdapter() {
     process.env.REACT_APP_ADDRESS_PROVIDER || "",
     deployer
   );
-
+  
   const priceOracle = PriceOracle__factory.connect(
     await addressProvider.getPriceOracle(),
     configurator
   );
+
+  console.log(priceOracle.address);
+
 
   // Gets creditConfigurator instance for particular creditManager
   const cm = ICreditManager__factory.connect(CREDIT_MANAGER, deployer);
@@ -70,13 +77,18 @@ async function deployAdapter() {
 
   // Deploys new PriceFeeds if needed
   for (let lpToken of LP_TOKENS) {
+    const kovanParams = ["0xe7282e08d2E7e56aA0e075b47a75C1f058428aEC", "0x64EaC61A2DFda2c3Fa04eED49AA33D021AeC8838", "0x0000000000000000000000000000000000000000", "0x31EeB2d0F9B6fD8642914aB10F4dD473677D80df", "0xd0A1E359811322d97991E03f863a0C30C2cF029C", "0xd0A1E359811322d97991E03f863a0C30C2cF029C"];
     // Please, change here to your PriceFeed which supports LP tokens
-    const priceFeed = await deploy<ZeroPriceFeed>("ZeroPriceFeed", log);
+    const priceFeed = await deploy<LpOracle>("LpOracle", log, ...kovanParams);
 
+
+    console.log(priceOracle.address);
     // Adds lpToken to priceOracle with LP priceFeed
     await waitForTransaction(
       priceOracle.addPriceFeed(lpToken.address, priceFeed.address)
     );
+
+    return;
 
     // Adds lpToken to creditConfigurator
     await waitForTransaction(
@@ -91,6 +103,8 @@ async function deployAdapter() {
       )
     );
   }
+
+  return;
 
   // Deploys adapter
   log.debug("Deploying new adapter");
@@ -110,3 +124,5 @@ async function deployAdapter() {
     creditConfigurator.allowContract(ORIGINAL_CONTRACT, newAdapter)
   );
 }
+
+deployAdapter();
