@@ -65,8 +65,6 @@ async function deployAdapter() {
     configurator
   );
 
-  console.log(priceOracle.address);
-
 
   // Gets creditConfigurator instance for particular creditManager
   const cm = ICreditManager__factory.connect(CREDIT_MANAGER, deployer);
@@ -82,18 +80,16 @@ async function deployAdapter() {
     const priceFeed = await deploy<LpOracle>("LpOracle", log, ...kovanParams);
 
 
-    console.log(priceOracle.address);
     // Adds lpToken to priceOracle with LP priceFeed
     await waitForTransaction(
       priceOracle.addPriceFeed(lpToken.address, priceFeed.address)
     );
 
-    return;
-
     // Adds lpToken to creditConfigurator
     await waitForTransaction(
       creditConfigurator.addTokenToAllowedList(lpToken.address)
     );
+
 
     // Sets Liquidation Threshold to lpToken in CreditManager
     await waitForTransaction(
@@ -103,9 +99,6 @@ async function deployAdapter() {
       )
     );
   }
-
-  return;
-
   // Deploys adapter
   log.debug("Deploying new adapter");
   const newAdapter = (
@@ -117,6 +110,10 @@ async function deployAdapter() {
     )
   ).address;
 
+
+  await waitForTransaction(
+    creditConfigurator.forbidContract(ORIGINAL_CONTRACT)
+  );
   // It allows contract. It would add pair contract <-> adapter
   // if it wasn't added before or replace existing one
   log.debug("Allowing contract on Credit manager");
