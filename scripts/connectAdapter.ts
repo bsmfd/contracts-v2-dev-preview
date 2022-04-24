@@ -15,6 +15,7 @@ import {
 } from "../types";
 import { deploy, waitForTransaction } from "../utils/transaction";
 import { UNISWAP_V2_ROUTER } from "@gearbox-protocol/sdk";
+import { credit } from "../types/contracts";
 
 const log = new Logger();
 const CONFIGURATOR = "0x19301B8e700925E850C945a28256b6A6FDe5904C";
@@ -27,12 +28,12 @@ interface LPToken {
 }
 
 const LP_TOKENS: Array<LPToken> = [{
-  address: "0xe7282e08d2E7e56aA0e075b47a75C1f058428aEC",
+  address: "0x85B3b77f1fb13aCa9bA7f02db20758CE6a4170d6", //0xe7282e08d2E7e56aA0e075b47a75C1f058428aEC",
   liquidationThreshold: 1,
 }];
 
 /// This script deploys and connects new adapter to desired CreditManager
-async function deployAdapter() {
+async function deployAdapter(): Promise<UniswapV2Adapter> {
   dotenv.config({ path: ".env.kovan" });
 
   // Gets active accounts
@@ -75,10 +76,11 @@ async function deployAdapter() {
 
   // Deploys new PriceFeeds if needed
   for (let lpToken of LP_TOKENS) {
-    const kovanParams = ["0xe7282e08d2E7e56aA0e075b47a75C1f058428aEC", "0x64EaC61A2DFda2c3Fa04eED49AA33D021AeC8838", "0x0000000000000000000000000000000000000000", "0x31EeB2d0F9B6fD8642914aB10F4dD473677D80df", "0xd0A1E359811322d97991E03f863a0C30C2cF029C", "0xd0A1E359811322d97991E03f863a0C30C2cF029C"];
+    const kovanParams = ["0x85B3b77f1fb13aCa9bA7f02db20758CE6a4170d6", "0x64EaC61A2DFda2c3Fa04eED49AA33D021AeC8838", "0x0000000000000000000000000000000000000000", "0x31EeB2d0F9B6fD8642914aB10F4dD473677D80df", "0xd0A1E359811322d97991E03f863a0C30C2cF029C", "0xd0A1E359811322d97991E03f863a0C30C2cF029C"];
+    // sushi: const kovanParams = ["0xe7282e08d2E7e56aA0e075b47a75C1f058428aEC", "0x64EaC61A2DFda2c3Fa04eED49AA33D021AeC8838", "0x0000000000000000000000000000000000000000", "0x31EeB2d0F9B6fD8642914aB10F4dD473677D80df", "0xd0A1E359811322d97991E03f863a0C30C2cF029C", "0xd0A1E359811322d97991E03f863a0C30C2cF029C"];
+  
     // Please, change here to your PriceFeed which supports LP tokens
     const priceFeed = await deploy<LpOracle>("LpOracle", log, ...kovanParams);
-
 
     // Adds lpToken to priceOracle with LP priceFeed
     await waitForTransaction(
@@ -108,8 +110,7 @@ async function deployAdapter() {
       CREDIT_MANAGER,
       ORIGINAL_CONTRACT
     )
-  ).address;
-
+  )
 
   await waitForTransaction(
     creditConfigurator.forbidContract(ORIGINAL_CONTRACT)
@@ -118,8 +119,11 @@ async function deployAdapter() {
   // if it wasn't added before or replace existing one
   log.debug("Allowing contract on Credit manager");
   await waitForTransaction(
-    creditConfigurator.allowContract(ORIGINAL_CONTRACT, newAdapter)
+    creditConfigurator.allowContract(ORIGINAL_CONTRACT, newAdapter.address)
   );
+
+  return newAdapter;
 }
 
-deployAdapter();
+// deployAdapter();
+export default deployAdapter;

@@ -72,7 +72,7 @@ contract UniswapV2Adapter is
         targetContract,
         abi.encodeWithSelector(
           IUniswapV2Router02.swapExactTokensForTokens.selector,
-          params.amountIn / 2, // yolo
+          params.amountIn / 2, // yolo, should be a bit less than haf
           0,
           params.path,
           creditAccount,
@@ -81,17 +81,18 @@ contract UniswapV2Adapter is
       ),
       (uint256[])
     );
-    uint256 amountOtherGot = amounts[amounts.length - 1];
+
+    uint256 amountB = amounts[amounts.length - 1];
 
     creditManager.executeOrder(
       msg.sender,
       targetContract,
       abi.encodeWithSelector(
-        IUniswapV2Router02.swapTokensForExactTokens.selector,
+        IUniswapV2Router02.addLiquidity.selector,
         params.path[0],
         params.path[params.path.length - 1],
         params.amountIn / 2,
-        amountOtherGot,
+        amountB,
         params.amountAMin,
         params.amountBMin,
         creditAccount,
@@ -101,13 +102,16 @@ contract UniswapV2Adapter is
 
     address lpToken = UniFactory(IUniswapV2Router02(targetContract).factory())
     .getPair(params.path[0], params.path[params.path.length - 1]);
+
     creditManager.checkAndEnableToken(
       creditAccount,
       params.path[params.path.length - 1]
     );
+
     creditManager.checkAndEnableToken(creditAccount, lpToken);
 
     creditManager.fullCollateralCheck(creditAccount);
+
   }
 
   /**
